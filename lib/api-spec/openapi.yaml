@@ -1,0 +1,1214 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: API specification for AI Agent Development Guidebook
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: knowledge-base
+    description: Knowledge base entries
+  - name: chat
+    description: AI chat assistant
+  - name: plan
+    description: Project plan generation
+  - name: tool-evaluation
+    description: Tool evaluation
+  - name: prompt-generator
+    description: Professional prompt generation
+  - name: memory
+    description: User memory and learned insights
+  - name: system-instructions
+    description: AI system instructions per mode
+  - name: search
+    description: Web search proxy
+
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  # ─── Knowledge Base ───────────────────────────────────────────────────────────
+  /knowledge-base:
+    get:
+      operationId: listKnowledgeBaseEntries
+      tags: [knowledge-base]
+      summary: List all knowledge base entries
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of knowledge base entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/KnowledgeBaseEntry"
+    post:
+      operationId: createKnowledgeBaseEntry
+      tags: [knowledge-base]
+      summary: Create a new knowledge base entry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateKnowledgeBaseEntryBody"
+      responses:
+        "201":
+          description: Created entry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KnowledgeBaseEntry"
+
+  /knowledge-base/categories:
+    get:
+      operationId: listKnowledgeBaseCategories
+      tags: [knowledge-base]
+      summary: List all categories with entry counts
+      responses:
+        "200":
+          description: Category list with counts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/KnowledgeBaseCategory"
+
+  /knowledge-base/{id}:
+    get:
+      operationId: getKnowledgeBaseEntry
+      tags: [knowledge-base]
+      summary: Get a knowledge base entry
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Entry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KnowledgeBaseEntry"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateKnowledgeBaseEntry
+      tags: [knowledge-base]
+      summary: Update a knowledge base entry
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateKnowledgeBaseEntryBody"
+      responses:
+        "200":
+          description: Updated entry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KnowledgeBaseEntry"
+    delete:
+      operationId: deleteKnowledgeBaseEntry
+      tags: [knowledge-base]
+      summary: Delete a knowledge base entry
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ─── Chat Sessions ─────────────────────────────────────────────────────────────
+  /chat/sessions:
+    get:
+      operationId: listChatSessions
+      tags: [chat]
+      summary: List all chat sessions
+      responses:
+        "200":
+          description: List of sessions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChatSession"
+    post:
+      operationId: createChatSession
+      tags: [chat]
+      summary: Create a new chat session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateChatSessionBody"
+      responses:
+        "201":
+          description: Created session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatSession"
+
+  /chat/sessions/{id}:
+    get:
+      operationId: getChatSession
+      tags: [chat]
+      summary: Get a chat session with messages
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Session with messages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatSessionWithMessages"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteChatSession
+      tags: [chat]
+      summary: Delete a chat session
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /chat/sessions/{id}/messages:
+    post:
+      operationId: sendChatMessage
+      tags: [chat]
+      summary: Send a message (SSE streaming response)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendChatMessageBody"
+      responses:
+        "200":
+          description: SSE stream
+
+  /chat/sessions/{id}/end:
+    post:
+      operationId: endChatSession
+      tags: [chat]
+      summary: End a session and trigger memory extraction
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Session ended, memory extracted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EndSessionResponse"
+
+  # ─── Plan Generation ──────────────────────────────────────────────────────────
+  /plans:
+    get:
+      operationId: listPlans
+      tags: [plan]
+      summary: List all saved plans
+      responses:
+        "200":
+          description: List of plans
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Plan"
+    post:
+      operationId: createPlan
+      tags: [plan]
+      summary: Create a new plan session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePlanBody"
+      responses:
+        "201":
+          description: Created plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Plan"
+
+  /plans/{id}:
+    get:
+      operationId: getPlan
+      tags: [plan]
+      summary: Get a plan with messages
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Plan with messages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanWithMessages"
+    patch:
+      operationId: updatePlan
+      tags: [plan]
+      summary: Update plan metadata
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePlanBody"
+      responses:
+        "200":
+          description: Updated plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Plan"
+    delete:
+      operationId: deletePlan
+      tags: [plan]
+      summary: Delete a plan
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /plans/{id}/messages:
+    post:
+      operationId: sendPlanMessage
+      tags: [plan]
+      summary: Send a message to the plan generator (SSE streaming)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendPlanMessageBody"
+      responses:
+        "200":
+          description: SSE stream
+
+  /plans/{id}/generate-prompt:
+    post:
+      operationId: generateProfessionalPrompt
+      tags: [plan]
+      summary: Generate a professional vibe-coding prompt from approved plan
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Generated prompt
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeneratedPromptResponse"
+
+  /plans/{planId}/upload-document:
+    post:
+      operationId: uploadPlanDocument
+      tags: [plan]
+      summary: Upload and parse a document (PDF, DOCX, TXT) as plan context
+      parameters:
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: false
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UploadDocumentBody"
+      responses:
+        "200":
+          description: Document parsed and stored as plan context
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadDocumentResponse"
+
+  /search:
+    get:
+      operationId: webSearch
+      tags: [search]
+      summary: Perform a web search via DuckDuckGo (no API key required)
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebSearchResponse"
+
+  # ─── Tool Evaluation ──────────────────────────────────────────────────────────
+  /tool-evaluations:
+    get:
+      operationId: listToolEvaluations
+      tags: [tool-evaluation]
+      summary: List all tool evaluations
+      responses:
+        "200":
+          description: List of evaluations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ToolEvaluation"
+    post:
+      operationId: createToolEvaluation
+      tags: [tool-evaluation]
+      summary: Create and run a new tool evaluation (SSE streaming)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateToolEvaluationBody"
+      responses:
+        "200":
+          description: SSE stream of evaluation progress
+
+  /tool-evaluations/{id}:
+    get:
+      operationId: getToolEvaluation
+      tags: [tool-evaluation]
+      summary: Get a completed tool evaluation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Tool evaluation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ToolEvaluation"
+    delete:
+      operationId: deleteToolEvaluation
+      tags: [tool-evaluation]
+      summary: Delete a tool evaluation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ─── Memory ───────────────────────────────────────────────────────────────────
+  /memory:
+    get:
+      operationId: listMemoryEntries
+      tags: [memory]
+      summary: List all memory/insight entries
+      responses:
+        "200":
+          description: List of memory entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MemoryEntry"
+
+  /memory/{id}:
+    patch:
+      operationId: updateMemoryEntry
+      tags: [memory]
+      summary: Update a memory entry
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMemoryEntryBody"
+      responses:
+        "200":
+          description: Updated memory entry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemoryEntry"
+    delete:
+      operationId: deleteMemoryEntry
+      tags: [memory]
+      summary: Delete a memory entry
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ─── System Instructions ──────────────────────────────────────────────────────
+  /system-instructions:
+    get:
+      operationId: listSystemInstructions
+      tags: [system-instructions]
+      summary: List all system instructions (one per AI mode)
+      responses:
+        "200":
+          description: List of system instructions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SystemInstruction"
+
+  /system-instructions/{mode}:
+    get:
+      operationId: getSystemInstruction
+      tags: [system-instructions]
+      summary: Get system instruction for a specific mode
+      parameters:
+        - name: mode
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: System instruction
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemInstruction"
+    patch:
+      operationId: updateSystemInstruction
+      tags: [system-instructions]
+      summary: Update system instruction for a mode
+      parameters:
+        - name: mode
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSystemInstructionBody"
+      responses:
+        "200":
+          description: Updated instruction
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemInstruction"
+
+  /system-instructions/{mode}/reset:
+    post:
+      operationId: resetSystemInstruction
+      tags: [system-instructions]
+      summary: Reset system instruction to default
+      parameters:
+        - name: mode
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Reset to default
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemInstruction"
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    # ─── Knowledge Base ─────────────────────────────────────────────────────────
+    KnowledgeBaseEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        category:
+          type: string
+        subcategory:
+          type: ["string", "null"]
+        content:
+          type: string
+        summary:
+          type: ["string", "null"]
+        tags:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          enum: [active, outdated, deprecated]
+        version:
+          type: ["string", "null"]
+        sourceUrl:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - title
+        - category
+        - content
+        - status
+        - tags
+        - createdAt
+        - updatedAt
+
+    KnowledgeBaseCategory:
+      type: object
+      properties:
+        category:
+          type: string
+        count:
+          type: integer
+      required:
+        - category
+        - count
+
+    CreateKnowledgeBaseEntryBody:
+      type: object
+      properties:
+        title:
+          type: string
+        category:
+          type: string
+        subcategory:
+          type: ["string", "null"]
+        content:
+          type: string
+        summary:
+          type: ["string", "null"]
+        tags:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          enum: [active, outdated, deprecated]
+        version:
+          type: ["string", "null"]
+        sourceUrl:
+          type: ["string", "null"]
+      required:
+        - title
+        - category
+        - content
+
+    UpdateKnowledgeBaseEntryBody:
+      type: object
+      properties:
+        title:
+          type: string
+        category:
+          type: string
+        subcategory:
+          type: ["string", "null"]
+        content:
+          type: string
+        summary:
+          type: ["string", "null"]
+        tags:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          enum: [active, outdated, deprecated]
+        version:
+          type: ["string", "null"]
+        sourceUrl:
+          type: ["string", "null"]
+
+    # ─── Chat ───────────────────────────────────────────────────────────────────
+    ChatSession:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        language:
+          type: string
+          enum: [ar, en]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - title
+        - language
+        - createdAt
+        - updatedAt
+
+    ChatMessage:
+      type: object
+      properties:
+        id:
+          type: integer
+        sessionId:
+          type: integer
+        role:
+          type: string
+          enum: [user, assistant]
+        content:
+          type: string
+        searchUsed:
+          type: boolean
+        sources:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - sessionId
+        - role
+        - content
+        - searchUsed
+        - sources
+        - createdAt
+
+    ChatSessionWithMessages:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        language:
+          type: string
+          enum: [ar, en]
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatMessage"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - title
+        - language
+        - messages
+        - createdAt
+        - updatedAt
+
+    CreateChatSessionBody:
+      type: object
+      properties:
+        title:
+          type: string
+        language:
+          type: string
+          enum: [ar, en]
+      required:
+        - title
+
+    SendChatMessageBody:
+      type: object
+      properties:
+        content:
+          type: string
+        language:
+          type: string
+          enum: [ar, en]
+        forceSearch:
+          type: boolean
+      required:
+        - content
+
+    EndSessionResponse:
+      type: object
+      properties:
+        memoriesExtracted:
+          type: integer
+      required:
+        - memoriesExtracted
+
+    # ─── Plans ──────────────────────────────────────────────────────────────────
+    Plan:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        initialPrompt:
+          type: string
+        documentContext:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [draft, approved, exported]
+        language:
+          type: string
+          enum: [ar, en]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - title
+        - initialPrompt
+        - status
+        - language
+        - createdAt
+        - updatedAt
+
+    PlanMessage:
+      type: object
+      properties:
+        id:
+          type: integer
+        planId:
+          type: integer
+        role:
+          type: string
+          enum: [user, assistant]
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - planId
+        - role
+        - content
+        - createdAt
+
+    PlanWithMessages:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        initialPrompt:
+          type: string
+        documentContext:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [draft, approved, exported]
+        language:
+          type: string
+          enum: [ar, en]
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlanMessage"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - title
+        - initialPrompt
+        - status
+        - language
+        - messages
+        - createdAt
+        - updatedAt
+
+    CreatePlanBody:
+      type: object
+      properties:
+        title:
+          type: string
+        initialPrompt:
+          type: string
+        language:
+          type: string
+          enum: [ar, en]
+        documentSessionId:
+          type: ["string", "null"]
+      required:
+        - title
+        - initialPrompt
+
+    UpdatePlanBody:
+      type: object
+      properties:
+        title:
+          type: string
+        status:
+          type: string
+          enum: [draft, approved, exported]
+
+    SendPlanMessageBody:
+      type: object
+      properties:
+        content:
+          type: string
+        language:
+          type: string
+          enum: [ar, en]
+      required:
+        - content
+
+    GeneratedPromptResponse:
+      type: object
+      properties:
+        prompt:
+          type: string
+        planId:
+          type: integer
+      required:
+        - prompt
+        - planId
+
+    UploadDocumentBody:
+      type: object
+      properties:
+        filename:
+          type: string
+        content:
+          type: string
+        language:
+          type: string
+          enum: [ar, en]
+      required:
+        - filename
+        - content
+
+    UploadDocumentResponse:
+      type: object
+      properties:
+        planId:
+          type: integer
+        filename:
+          type: string
+        characterCount:
+          type: integer
+        preview:
+          type: string
+      required:
+        - planId
+        - filename
+        - characterCount
+        - preview
+
+    # ─── Tool Evaluation ────────────────────────────────────────────────────────
+    ToolEvaluation:
+      type: object
+      properties:
+        id:
+          type: integer
+        toolName:
+          type: string
+        toolUrl:
+          type: ["string", "null"]
+        projectRequirements:
+          type: string
+        report:
+          type: ["string", "null"]
+        fitScore:
+          type: ["integer", "null"]
+        recommendation:
+          type: ["string", "null"]
+          enum: [USE, USE_WITH_CAVEATS, AVOID, null]
+        status:
+          type: string
+          enum: [pending, completed, failed]
+        language:
+          type: string
+          enum: [ar, en]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - toolName
+        - projectRequirements
+        - status
+        - language
+        - createdAt
+        - updatedAt
+
+    CreateToolEvaluationBody:
+      type: object
+      properties:
+        toolName:
+          type: string
+        toolUrl:
+          type: ["string", "null"]
+        projectRequirements:
+          type: string
+        language:
+          type: string
+          enum: [ar, en]
+      required:
+        - toolName
+        - projectRequirements
+
+    # ─── Memory ─────────────────────────────────────────────────────────────────
+    MemoryEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+        key:
+          type: string
+        value:
+          type: string
+        confidence:
+          type: string
+          enum: [low, medium, high]
+        source:
+          type: string
+        isEditable:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - key
+        - value
+        - confidence
+        - source
+        - isEditable
+        - createdAt
+        - updatedAt
+
+    UpdateMemoryEntryBody:
+      type: object
+      properties:
+        key:
+          type: string
+        value:
+          type: string
+
+    # ─── System Instructions ────────────────────────────────────────────────────
+    SystemInstruction:
+      type: object
+      properties:
+        id:
+          type: integer
+        mode:
+          type: string
+          enum: [chat, plan, tool_evaluation, prompt_generator]
+        content:
+          type: string
+        isDefault:
+          type: boolean
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - mode
+        - content
+        - isDefault
+        - updatedAt
+    UpdateSystemInstructionBody:
+      type: object
+      properties:
+        content:
+          type: string
+      required:
+        - content
+
+    # ─── Web Search ─────────────────────────────────────────────────────────────
+    WebSearchResult:
+      type: object
+      properties:
+        title:
+          type: string
+        snippet:
+          type: string
+        url:
+          type: string
+      required:
+        - title
+        - snippet
+        - url
+
+    WebSearchResponse:
+      type: object
+      properties:
+        query:
+          type: string
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/WebSearchResult"
+        total:
+          type: integer
+      required:
+        - query
+        - results
+        - total
